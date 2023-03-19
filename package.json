@@ -1,16 +1,20 @@
 {
   "name": "web-scrapers",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "local": "npx functions-framework --target=scrapeSecondUse --signature-type=cloudevent",
+    "deploy": "gcloud functions deploy salvage-scraper --gen2 --entry-point=scrapeSecondUse --region=us-central1 --runtime nodejs18 --env-vars-file .env.yaml --set-secrets 'GMAIL_APP_PASSWORD=gmail-app-password:latest' --project=gcmn-salvage-scraper --trigger-topic=salvage-scraper-schedule --service-account=scraper-bot@gcmn-salvage-scraper.iam.gserviceaccount.com"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.0.3",
     "node-fetch": "^2.6.9",
-    "nodemailer": "^6.7.2"
+    "nodemailer": "^6.7.2",
+    "@google-cloud/functions-framework": "^3.1.3"
   }
 }

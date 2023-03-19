@@ -1,23 +1,28 @@
-const { creds } = require('./creds.js');
 const fetch = require('node-fetch');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const cheerio = require('cheerio');
 
+const functions = require('@google-cloud/functions-framework');
+
 const TIMESTAMP_FILE = './seconduseTimestamp.txt';
+const USER = process.env.GMAIL_SENDER
+const PASSWORD = process.env.GMAIL_APP_PASSWORD
+const RECIPIENT = process.env.GMAIL_RECIPIENT
+
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-        user: creds.user,
-        pass: creds.pass,
+        user: USER,
+        pass: PASSWORD,
     },
 });
 
 const buildEmailObject = (newTimestamp) => {
     return {
-        from: `"Second Use Mailer" <${creds.user}>`, // sender address
-        to: creds.recipientEmail, // list of receivers
+        from: `"Second Use Mailer" <${USER}>`, // sender address
+        to: RECIPIENT, // list of receivers
         subject: "There is new inventory at Second Use", // Subject line
         text: `Second Use ${newTimestamp} https://www.seconduse.com/inventory/`, // plain text body
         html: `<b>Second Use ${newTimestamp} https://www.seconduse.com/inventory/</b>`, // html body
@@ -55,4 +60,12 @@ async function scrape() {
     writeTimestamp(newTimestamp);
     console.log("Updated timestamp");
 }
-scrape();
+
+// Register a CloudEvent function with the Functions Framework
+functions.cloudEvent('scrapeSecondUse', cloudEvent => {
+    scrape();
+});
+
+if (require.main === module) {
+    scrape();
+}
