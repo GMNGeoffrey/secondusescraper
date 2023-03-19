@@ -4,17 +4,20 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "local": "npx functions-framework --target=scrapeSecondUse --signature-type=cloudevent",
-    "deploy": "gcloud functions deploy salvage-scraper --gen2 --entry-point=scrapeSecondUse --region=us-central1 --runtime nodejs18 --env-vars-file .env.yaml --set-secrets 'GMAIL_APP_PASSWORD=gmail-app-password:latest' --project=gcmn-salvage-scraper --trigger-topic=salvage-scraper-schedule --service-account=scraper-bot@gcmn-salvage-scraper.iam.gserviceaccount.com"
+    "test": "echo 'Error: no test specified' && exit 1",
+    "local": ". ./load_secret.sh && npx env-cmd -f .env.json npx functions-framework --target=scrapeSecondUse --signature-type=cloudevent",
+    "trigger": "curl localhost:8080 -X POST -H 'Content-Type: application/json' -H 'ce-id: 123451234512345' -H 'ce-specversion: 1.0' -H 'ce-time: 2020-01-02T12:34:56.789Z' -H 'ce-type: google.cloud.pubsub.topic.v1.messagePublished' -H 'ce-source: //pubsub.googleapis.com/projects/gcmn-salvage-scraper/topics/salvage-scraper-schedule'",
+    "deploy": "gcloud functions deploy salvage-scraper --gen2 --entry-point=scrapeSecondUse --region=us-central1 --runtime nodejs18 --env-vars-file .env.json --set-secrets 'GMAIL_APP_PASSWORD=gmail-app-password:latest' --project=gcmn-salvage-scraper --trigger-topic=salvage-scraper-schedule --service-account=scraper-bot@gcmn-salvage-scraper.iam.gserviceaccount.com"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/functions-framework": "^3.1.3",
     "cheerio": "^1.0.0-rc.12",
-    "dotenv": "^16.0.3",
     "node-fetch": "^2.6.9",
-    "nodemailer": "^6.7.2",
-    "@google-cloud/functions-framework": "^3.1.3"
+    "nodemailer": "^6.7.2"
+  },
+  "devDependencies": {
+    "env-cmd": "^10.1.0"
   }
 }

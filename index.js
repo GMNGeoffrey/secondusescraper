@@ -9,6 +9,8 @@ const TIMESTAMP_FILE = './seconduseTimestamp.txt';
 const USER = process.env.GMAIL_SENDER
 const PASSWORD = process.env.GMAIL_APP_PASSWORD
 const RECIPIENT = process.env.GMAIL_RECIPIENT
+// Reference a message ID to keep things in one thread
+const MESSAGE_ID_REF = process.env.MESSAGE_ID_REF
 
 
 const transporter = nodemailer.createTransport({
@@ -26,6 +28,7 @@ const buildEmailObject = (newTimestamp) => {
         subject: "There is new inventory at Second Use", // Subject line
         text: `Second Use ${newTimestamp} https://www.seconduse.com/inventory/`, // plain text body
         html: `<b>Second Use ${newTimestamp} https://www.seconduse.com/inventory/</b>`, // html body
+        references: [MESSAGE_ID_REF],
     };
 };
 

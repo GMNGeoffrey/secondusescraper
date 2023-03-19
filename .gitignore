@@ -3,4 +3,6 @@ creds.js
 seconduseTimestamp.txt
 .env
 .env.yaml
+env.yaml
+.env.json
 *.code-workspace
