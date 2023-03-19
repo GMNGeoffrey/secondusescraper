@@ -1,17 +1,23 @@
 const fetch = require('node-fetch');
 const nodemailer = require('nodemailer');
-const fs = require('fs');
 const cheerio = require('cheerio');
 
 const functions = require('@google-cloud/functions-framework');
 
-const TIMESTAMP_FILE = './seconduseTimestamp.txt';
+const firebaseAdmin = require('firebase-admin');
+const firebaseApp = require('firebase-admin/app')
+
+firebaseAdmin.initializeApp({credentials: firebaseApp.applicationDefault()});
+const db = firebaseAdmin.firestore();
+const timestampRef = db.collection('seconduse').doc('timestamp')
+
+
 const USER = process.env.GMAIL_SENDER
 const PASSWORD = process.env.GMAIL_APP_PASSWORD
-const RECIPIENT = process.env.GMAIL_RECIPIENT
-// Reference a message ID to keep things in one thread
+const RECIPIENTS = process.env.GMAIL_RECIPIENTS
+// Reference a message ID to keep things in one thread. Pick this up from a past
+// send event.
 const MESSAGE_ID_REF = process.env.MESSAGE_ID_REF
-
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -23,11 +29,11 @@ const transporter = nodemailer.createTransport({
 
 const buildEmailObject = (newTimestamp) => {
     return {
-        from: `"Second Use Mailer" <${USER}>`, // sender address
-        to: RECIPIENT, // list of receivers
-        subject: "There is new inventory at Second Use", // Subject line
-        text: `Second Use ${newTimestamp} https://www.seconduse.com/inventory/`, // plain text body
-        html: `<b>Second Use ${newTimestamp} https://www.seconduse.com/inventory/</b>`, // html body
+        from: `"Second Use Mailer" <${USER}>`,
+        to: RECIPIENTS, // comma-separated recipients
+        subject: "There is new inventory at Second Use",
+        text: `Second Use ${newTimestamp} https://www.seconduse.com/inventory/`,
+        html: `<b>Second Use ${newTimestamp} https://www.seconduse.com/inventory/</b>`,
         references: [MESSAGE_ID_REF],
     };
 };
@@ -38,15 +44,17 @@ async function sendUpdateEmail(newTimestamp) {
     }).catch(console.error);
 }
 
-async function getOldTimestamp(newTimestamp) {
-    if (!fs.existsSync(TIMESTAMP_FILE)) {
-        return '';
-    }
-    return fs.readFileSync(TIMESTAMP_FILE, { encoding: 'utf8', flag: 'r' });
-}
+async function updateTimestamp(newTimestamp) {
+    const updated = await db.runTransaction(async (t) => {
+        const doc = await t.get(timestampRef);
+        if (newTimestamp === doc.data().updatedMsg) {
+            return false;
+        }
+        t.update(timestampRef, {updatedMsg: newTimestamp});
+        return true
+    });
 
-async function writeTimestamp(newTimestamp) {
-    fs.writeFileSync(TIMESTAMP_FILE, newTimestamp);
+    return updated;
 }
 
 async function scrape() {
@@ -54,14 +62,13 @@ async function scrape() {
     const body = await response.text();
     const $ = cheerio.load(body);
     const newTimestamp = $('.timestamp > p').text();
-    const oldTimestamp = await getOldTimestamp();
-    if (newTimestamp === oldTimestamp) {
-        console.log("No new updates");
-        return;
+    const updated = await updateTimestamp(newTimestamp);
+    if (updated === true) {
+        sendUpdateEmail(newTimestamp);
+        console.log("Sent email.");
+    } else {
+        console.log("No new updates.")
     }
-    sendUpdateEmail(newTimestamp);
-    writeTimestamp(newTimestamp);
-    console.log("Updated timestamp");
 }
 
 // Register a CloudEvent function with the Functions Framework
