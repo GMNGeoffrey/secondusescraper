@@ -74,6 +74,30 @@ async function detectBallardReuseChange($, providerRef) {
     return updated;
 }
 
+async function detectEarthWiseSalvageChange($, providerRef) {
+    const links = $('.itembox').find('a').map((_, e) => e.attribs.href).toArray();
+    const firstLink = links[0];
+
+    let updated;
+    try {
+        updated = await db.runTransaction(async (t) => {
+            const doc = await t.get(providerRef);
+            const oldLinks = doc.data().productLinks;
+            // If the first link has been seen before then there isn't new inventory.
+            const updated = !oldLinks.includes(firstLink);
+            // But stuff could've been removed (e.g. sold), so still update the list.
+            if (!arrayEquals(links, oldLinks)) {
+                t.update(providerRef, { productLinks: links });
+            }
+            return updated;
+        });
+    } catch (e) {
+        console.error(e);
+    }
+    return updated;
+}
+
+
 async function sendSecondUseUpdateEmail($, user) {
     const updatedMsg = $('.timestamp > p').text();
     const subRef = db.doc(`users/${user}/subscriptions/second_use`);
@@ -125,6 +149,31 @@ async function sendBallardReuseUseUpdateEmail($, user) {
     }
 }
 
+async function sendEarthWiseSalvageUpdateEmail($, user) {
+    const subRef = db.doc(`users/${user}/subscriptions/earthwise_salvage`);
+    try {
+        const _ = await db.runTransaction(async (t) => {
+            const doc = await t.get(subRef);
+            // Reference a message ID to keep things in one thread. Pick this up
+            // from a past send event.
+            const messageId = doc.data().messageId;
+            const response = await transporter.sendMail({
+                from: `"Salvage Watch" <${USER}>`,
+                to: RECIPIENTS, // comma-separated recipients
+                subject: "New inventory at EarthWise Salvage",
+                text: `Earth Wise Salvage https://www.ewsalvage.com/inventory/`,
+                html: `<b>Earth Wise Salvage https://www.ewsalvage.com/inventory/</b>`,
+                references: [messageId],
+            });
+            if (!messageId) {
+                t.update(subRef, { messageId: response.messageId });
+            }
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 
 const PROVIDERS = {
     second_use: {
@@ -137,6 +186,11 @@ const PROVIDERS = {
         hasChanged: detectBallardReuseChange,
         sendUpdateEmail: sendBallardReuseUseUpdateEmail,
     },
+    earthwise_salvage: {
+        url: "https://ewsalvage.com/inventory/",
+        hasChanged: detectEarthWiseSalvageChange,
+        sendUpdateEmail: sendEarthWiseSalvageUpdateEmail,
+    }
 
 };
 
