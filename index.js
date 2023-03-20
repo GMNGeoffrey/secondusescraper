@@ -33,14 +33,19 @@ function arrayEquals(a, b) {
 
 async function detectSecondUseChange($, providerRef) {
     const updatedMsg = $('.timestamp > p').text();
-    const updated = await db.runTransaction(async (t) => {
-        const doc = await t.get(providerRef);
-        if (updatedMsg === doc.data().updatedMsg) {
-            return false;
-        }
-        t.update(providerRef, { updatedMsg: updatedMsg });
-        return true;
-    });
+    let updated;
+    try {
+        updated = await db.runTransaction(async (t) => {
+            const doc = await t.get(providerRef);
+            if (updatedMsg === doc.data().updatedMsg) {
+                return false;
+            }
+            t.update(providerRef, { updatedMsg: updatedMsg });
+            return true;
+        });
+    } catch (e) {
+        console.error(e);
+    }
 
     return updated;
 }
@@ -50,17 +55,22 @@ async function detectBallardReuseChange($, providerRef) {
     const links = $products.children('.product-images').map((_, e) => e.attribs.href).toArray();
     const firstLink = links[0];
 
-    const updated = await db.runTransaction(async (t) => {
-        const doc = await t.get(providerRef);
-        const oldLinks = doc.data().productLinks;
-        // If the first link has been seen before then there isn't new inventory.
-        const updated = !oldLinks.includes(firstLink);
-        // But stuff could've been removed (e.g. sold), so still update the list.
-        if (!arrayEquals(links, oldLinks)) {
-            t.update(providerRef, { productLinks: links });
-        }
-        return updated;
-    });
+    let updated;
+    try {
+        updated = await db.runTransaction(async (t) => {
+            const doc = await t.get(providerRef);
+            const oldLinks = doc.data().productLinks;
+            // If the first link has been seen before then there isn't new inventory.
+            const updated = !oldLinks.includes(firstLink);
+            // But stuff could've been removed (e.g. sold), so still update the list.
+            if (!arrayEquals(links, oldLinks)) {
+                t.update(providerRef, { productLinks: links });
+            }
+            return updated;
+        });
+    } catch (e) {
+        console.error(e);
+    }
     return updated;
 }
 
